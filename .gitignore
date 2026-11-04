@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+# never commit photos, calibration, per-car state or models
+*.jpg
+*.JPG
+*.nef
+*.NEF
+*.rknn
+*.rkllm
+*.db

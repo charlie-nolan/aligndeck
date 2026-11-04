@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wheel Alignment</title>
+<style>
+:root{--bg:#0f1311;--panel:#171d1a;--line:#2a332e;--text:#e3e8e4;--forest:#6fae86;--amber:#d9a441;--purple:#a991d8;
+--muted:#93a39a;--ok:#7fbf8f;--grey:#6b7570;--focus:#e3c46f}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 "JetBrains Mono","DejaVu Sans Mono",monospace}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line)}
+header h1{font-size:16px;margin:0;color:var(--forest);letter-spacing:1px}
+#busy{color:var(--amber)} #err{color:var(--amber)}
+nav{display:flex;flex-wrap:wrap;gap:4px;padding:8px 16px}
+nav button{background:var(--panel);color:var(--muted);border:1px solid var(--line);padding:6px 12px;cursor:pointer;font:inherit}
+nav button.on{color:var(--text);border-color:var(--forest)}
+main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;padding:0 16px 16px}
+@media (max-width:900px){main{grid-template-columns:1fr}}
+section{display:none} section.on{display:block}
+.box{background:var(--panel);border:1px solid var(--line);padding:12px;margin-bottom:12px}
+h2{font-size:14px;color:var(--forest);margin:0 0 8px}
+input,select,button.act{background:#0b0e0c;color:var(--text);border:1px solid var(--line);padding:6px 8px;font:inherit;max-width:100%}
+button.act{cursor:pointer;background:#1f2823}
+button.primary{border-color:var(--forest);color:var(--forest)}
+*:focus{outline:2px solid var(--focus);outline-offset:1px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+.src{color:var(--purple);font-size:13px} .muted{color:var(--muted)} .amber{color:var(--amber)} .ok{color:var(--ok)}
+.grey{color:var(--grey)} .head{color:var(--forest);font-weight:bold;margin-top:6px} .text{color:var(--text)}
+.lines div{white-space:pre-wrap}
+table{border-collapse:collapse;width:100%;font-size:13px} td,th{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left}
+th{color:var(--muted);font-weight:normal}
+#log{max-height:260px;overflow:auto;font-size:13px}
+#liveimg,#previmg{width:100%;background:#000;display:block}
+img:not([src]){display:none}
+.counts span{margin-right:12px}
+.keys{color:var(--grey);font-size:12px}
+.spec{border-bottom:1px solid var(--line);padding:6px 0}
+.spec select{width:100%}
+</style>
+</head>
+<body>
+<header>
+  <h1>WHEEL ALIGNMENT</h1><span id="car"></span><span id="busy"></span><span id="err"></span>
+  <span class="keys">Alt+1..5 tabs · F7 photo · F8 compute · F5/F6 side view · Alt+L live view</span>
+</header>
+<nav id="tabs"></nav>
+<main>
+<div>
+<section id="t1">
+  <div class="box"><h2>CAR</h2>
+    <div class="row"><input id="make" placeholder="make" size="10"><input id="model" placeholder="model" size="12">
+      <input id="year" placeholder="year" size="5"><button class="act primary" id="b_car">LOAD SPECS FROM MANUAL</button></div>
+    <div id="specs_msg" class="muted"></div>
+  </div>
+  <div class="box"><h2>SPECS</h2><div id="specs"></div>
+    <div class="row"><label>Tire <input id="f_tire" data-field="tire" placeholder="215/60R16" size="10"></label>
+      <label>Toe diameter mm <input id="f_diameter" data-field="diameter" size="6"></label></div>
+    <div class="row"><button class="act" id="b_tire">READ TIRE SIZE FROM A PHOTO</button><span id="tire_sug"></span>
+      <button class="act primary" id="b_tire_use" style="display:none">USE IT</button></div>
+    <div id="diam_note" class="src"></div>
+  </div>
+  <div class="box lines" id="manual"></div>
+</section>
+<section id="t2">
+  <div class="box"><h2>CAMERA</h2>
+    <div class="row"><select id="source"><option value="gphoto2">Nikon / DSLR over USB (gphoto2)</option>
+      <option value="webcam">Webcam</option><option value="files">Photo files (folder on this machine)</option></select>
+      <button class="act" id="b_check">CHECK CAMERA</button></div>
+    <div class="row" id="folder_row"><input id="folder" placeholder="folder with the photos, e.g. ~/Pictures/align" size="40"></div>
+    <div id="camera_msg" class="muted"></div><div id="install" class="amber"></div>
+  </div>
+  <div class="box"><h2>CALIBRATION (once per camera + lens + focus setting)</h2>
+    <div id="cal" class="muted"></div>
+    <div class="row"><button class="act" id="b_cal_add">ADD CALIBRATION PHOTO</button>
+      <button class="act primary" id="b_cal_solve">SOLVE</button><button class="act" id="b_cal_reset">START OVER</button></div>
+    <div class="muted">Nikon: lens and body on MF, focus once on the target, tape the focus ring. JPEG fine, fixed ISO, about f/8.
+      Hold the LEFT wheel target at many angles, covering the corners of the frame too. Under 0.5 px is good.</div>
+  </div>
+</section>
+<section id="t3">
+  <div class="box"><h2>FRONT VIEW (recommended)</h2>
+    <div class="row"><button class="act" id="b_ax_front">FRONT AXLE (camera in front)</button>
+      <button class="act" id="b_ax_rear">REAR AXLE (camera behind)</button></div>
+    <div class="row"><button class="act" id="b_ax_photo">PHOTO AT THIS ROLL POSITION (F7)</button>
+      <button class="act primary" id="b_ax_go">COMPUTE (F8)</button><button class="act" id="b_ax_reset">START OVER</button></div>
+    <div id="axle_hint" class="muted"></div>
+  </div>
+  <div class="box"><h2>SIDE VIEW (fallback; gives thrust angle)</h2>
+    <div class="row"><select id="side_wheel"></select><label>photos <input id="shots" type="number" min="1" max="9" value="3" style="width:4em"></label>
+      <button class="act primary" id="b_side">MEASURE (F5)</button><button class="act" id="b_flip">FLIPPED (F6)</button></div>
+    <div class="row">String to hub center, mm:
+      <input data-field="str_left_front" placeholder="left front" size="9"><input data-field="str_left_rear" placeholder="left rear" size="9">
+      <input data-field="str_right_front" placeholder="right front" size="9"><input data-field="str_right_rear" placeholder="right rear" size="9"></div>
+    <div class="row"><input data-field="wheelbase" placeholder="wheelbase mm" size="11"><input data-field="track_f" placeholder="front track mm" size="12">
+      <input data-field="track_r" placeholder="rear track mm" size="12"></div>
+  </div>
+  <div class="box"><h2>RESULTS</h2><table><thead><tr><th>Wheel</th><th>Camber</th><th>Spec</th><th>Toe-in</th><th>Spec</th><th>Verdict</th><th>Reading</th></tr></thead><tbody id="results"></tbody></table></div>
+</section>
+<section id="t4">
+  <div class="box"><h2>CALIBRATE TOE ADJUSTER (do this once per car)</h2>
+    <div class="muted">Photos as it is, turn one tie rod a known amount, photos again. The app measures how much toe one
+      turn gives on this car and which way, then lists the turns for both sides. No thread pitch needed.</div>
+    <div class="row"><select id="cal_axle"><option value="front">front tie rods</option><option value="rear">rear toe adjusters</option></select>
+      <select id="cal_side"><option value="left">left (driver) side</option><option value="right">right (passenger) side</option></select>
+      turn <input id="cal_units" type="number" step="0.25" value="0.5" style="width:5em">
+      <select id="cal_unit"><option value="turn">turn</option><option value="graduation">graduation</option></select></div>
+    <div class="row">direction <input id="cal_plus" value="clockwise viewed from inside the car" style="flex:1"></div>
+    <div class="row"><button class="act primary" id="b_cal_go">START CALIBRATION</button>
+      <button class="act" id="b_cal_ph">PHOTO (F7)</button><button class="act primary" id="b_cal_f8">DONE WITH PHOTOS (F8)</button>
+      <button class="act" id="b_cal_x">CANCEL</button></div>
+    <div id="calib_hint" class="amber"></div>
+  </div>
+  <div class="box"><h2>ADJUST</h2>
+    <div class="row"><select id="adj_wheel"></select><select id="adj_qty"><option>toe</option><option>camber</option></select></div>
+    <div class="row">Rate <select id="rate" style="flex:1"></select></div>
+    <div class="row">'+' direction <input id="plus" placeholder="e.g. clockwise viewed from inside the car" style="flex:1"></div>
+    <div class="row">Pitch estimate <input data-field="pitch" placeholder="thread pitch mm" size="10"><input data-field="arm" placeholder="steering arm mm" size="10">
+      <select data-field="threads"><option value="1">rod turns in one thread</option><option value="2">sleeve, left + right threads</option></select></div>
+    <div class="row">Test move <input id="test_units" type="number" step="0.25" value="0.25" style="width:6em"> units in the '+' direction
+      <button class="act primary" id="b_test">I MOVED IT THIS MUCH: MEASURE AND LEARN</button></div>
+  </div>
+  <div class="box lines" id="plan"></div>
+</section>
+<section id="t5">
+  <div class="box"><h2>FULL COMPUTE</h2>
+    <div class="muted">Finds programs using CPU, GPU or NPU time. Tick the ones to PAUSE while you align; nothing is killed, and
+      everything comes back when you press RESUME or quit the app. Browsers are never pre-ticked (one may be showing this page).</div>
+    <div class="row"><button class="act primary" id="b_scan">FIND BUSY PROGRAMS</button>
+      <label><input type="checkbox" id="gov"> also set CPU governor to performance</label></div>
+    <table><thead><tr><th></th><th>Program</th><th>Why</th><th>RAM MB</th><th>Command</th></tr></thead><tbody id="scan"></tbody></table>
+    <div class="row"><button class="act primary" id="b_pause">PAUSE TICKED</button><button class="act" id="b_resume">RESUME ALL</button></div>
+    <div id="scan_msg" class="muted"></div><div id="paused" class="ok"></div><div id="npu" class="muted"></div><div class="row"><label><input type="checkbox" id="vlm_on"> vision model looks at each photo (notes only, never changes a reading)</label>
+      <button class="act" id="b_vlm_find">LOOK FOR THE MODEL AGAIN</button></div><div id="vlm" class="muted"></div>
+  </div>
+</section>
+</div>
+<div>
+  <div class="box"><h2>LIVE VIEW <button class="act" id="b_live">START (Alt+L)</button></h2>
+    <img id="liveimg" alt="live view from the camera"><div id="live_off" class="muted">Live view is off. Start it to aim the camera: every marker it sees is outlined (LEFT, RIGHT, FLOOR counts below).</div>
+    <div class="counts" id="counts"></div><div id="live_err" class="amber"></div>
+  </div>
+  <div class="box"><h2>LAST PHOTO <span id="prevname" class="muted"></span></h2><img id="previmg" alt="last photo with the markers found"><div id="prev_none" class="muted">No photo yet.</div></div>
+  <div class="box"><h2>LOG</h2><div id="log" class="lines"></div></div>
+</div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const TABS=["1. SPECS","2. CAMERA","3. MEASURE","4. ADJUST","5. FULL COMPUTE"];
+let S=null, tab=0, prevName="", liveOn=false;
+TABS.forEach((t,i)=>{const b=document.createElement("button");b.textContent=t;b.onclick=()=>show(i);$("tabs").appendChild(b)});
+function show(i){tab=i;document.querySelectorAll("section").forEach((s,k)=>s.classList.toggle("on",k==i));
+  document.querySelectorAll("nav button").forEach((b,k)=>b.classList.toggle("on",k==i))}
+show(0);
+function esc(t){return String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+async function act(name,body={}){
+  if(S&&S.camera.source==="files")body.folder=$("folder").value;
+  const r=await fetch("/api/"+name,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const j=await r.json(); if(!j.ok)$("err").textContent="[!] "+j.error; else $("err").textContent=""; refresh();}
+function setv(el,v){if(document.activeElement!==el&&el.value!==String(v??""))el.value=v??""}
+function lines(el,arr){el.innerHTML=arr.map(([c,t])=>`<div class="${c}">${esc(t)}</div>`).join("")}
+function opts(sel,list,cur){const h=list.map(o=>`<option value="${esc(o[0])}">${esc(o[1])}</option>`).join("");
+  if(sel.dataset.h!==h){sel.innerHTML=h;sel.dataset.h=h} if(document.activeElement!==sel)sel.value=cur}
+function render(){
+  $("car").textContent="// "+S.car.label+(S.car.db?"  ["+S.car.db+"]":"");
+  $("busy").textContent=S.busy?S.busy+"...":""; if(S.error)$("err").textContent="[!] "+S.error;
+  setv($("make"),S.car.make);setv($("model"),S.car.model);setv($("year"),S.car.year);
+  $("specs_msg").textContent=S.specs_msg;
+  const sp=$("specs");
+  if(sp.children.length!==S.specs.length){sp.innerHTML=S.specs.map((r,i)=>`<div class="spec" data-key="${r.key}">
+    <div class="row"><b style="min-width:9em">${esc(r.label)}</b><select class="pick"></select></div>
+    <div class="row"><input class="center" placeholder="center" size="8"><input class="tol" placeholder="± tol" size="8">
+    <select class="unit"><option>deg</option><option>mm</option></select><select class="basis"><option>each</option><option>total</option></select></div>
+    <div class="src"></div></div>`).join("");
+    sp.querySelectorAll(".spec").forEach(d=>{const k=d.dataset.key;
+      d.querySelector(".pick").onchange=e=>act("pick_spec",{key:k,idx:+e.target.value});
+      const typed=()=>act("type_spec",{key:k,center:d.querySelector(".center").value,tol:d.querySelector(".tol").value,
+        unit:d.querySelector(".unit").value,basis:d.querySelector(".basis").value});
+      d.querySelectorAll(".center,.tol").forEach(x=>x.onchange=typed);d.querySelectorAll(".unit,.basis").forEach(x=>x.onchange=typed)})}
+  S.specs.forEach((r,i)=>{const d=sp.children[i];
+    opts(d.querySelector(".pick"),[["-1","(type it myself)"]].concat(r.options.map((o,k)=>[String(k),o])),String(r.choice));
+    setv(d.querySelector(".center"),r.center);setv(d.querySelector(".tol"),r.tol);
+    setv(d.querySelector(".unit"),r.unit);setv(d.querySelector(".basis"),r.basis);d.querySelector(".src").textContent=r.source});
+  document.querySelectorAll("[data-field]").forEach(el=>setv(el,S.fields[el.dataset.field]));
+  $("diam_note").textContent=S.diameter_note; lines($("manual"),S.manual);
+  setv($("source"),S.camera.source); $("folder_row").style.display=S.camera.source==="files"?"":"none";
+  $("camera_msg").textContent=S.camera_msg; $("install").textContent=S.camera.install_hint; $("cal").textContent=S.camera.cal;
+  $("b_ax_front").classList.toggle("primary",S.axle.axle==="front");$("b_ax_rear").classList.toggle("primary",S.axle.axle==="rear");
+  $("axle_hint").textContent=S.axle.hint;
+  opts($("side_wheel"),S.wheels.map(w=>[w.id,w.name]),$("side_wheel").value||"LF");
+  $("results").innerHTML=S.results.map(r=>`<tr><td>${esc(r.wheel)}</td><td>${esc(r.camber)}</td><td>${esc(r.camber_spec)}</td>
+    <td>${esc(r.toe)}</td><td>${esc(r.toe_spec)}</td><td class="${r.bad?"amber":"ok"}">${esc(r.verdict)}</td><td class="muted">${esc(r.reading)}</td></tr>`).join("");
+  opts($("adj_wheel"),S.wheels.map(w=>[w.id,w.name]),S.adjust.wheel); setv($("adj_qty"),S.adjust.qty);
+  opts($("rate"),S.adjust.options.map(o=>[o.id,o.label]),S.adjust.choice); setv($("plus"),S.adjust.plus);
+  lines($("plan"),S.plan); $("calib_hint").textContent=S.calib.hint;
+  $("b_cal_ph").style.display=$("b_cal_f8").style.display=$("b_cal_x").style.display=S.calib.active?"":"none";
+  $("b_cal_go").style.display=S.calib.active?"none":"";
+  const L=$("log"),atEnd=L.scrollTop+L.clientHeight>=L.scrollHeight-4; lines(L,S.log); if(atEnd)L.scrollTop=L.scrollHeight;
+  liveOn=S.live.on; $("b_live").textContent=liveOn?"STOP (Alt+L)":"START (Alt+L)";
+  if(liveOn&&!$("liveimg").src.includes("live.mjpg"))$("liveimg").src="/live.mjpg?"+Date.now();
+  if(!liveOn&&$("liveimg").src.includes("live.mjpg"))$("liveimg").removeAttribute("src");
+  $("counts").innerHTML=Object.entries(S.live.counts||{}).map(([k,v])=>`<span class="${v?"ok":"grey"}">${k} ${v}</span>`).join("");
+  $("live_err").textContent=S.live.error; $("live_off").style.display=liveOn?"none":"";
+  $("prev_none").style.display=S.preview?"none":"";
+  if(S.preview&&S.preview!==prevName){prevName=S.preview;$("previmg").src="/preview.jpg?"+Date.now();$("prevname").textContent=S.preview}
+  if(S.scan.length&&$("scan").dataset.n!==String(S.scan.length)+S.scan[0].pid){$("scan").dataset.n=String(S.scan.length)+S.scan[0].pid;
+    $("scan").innerHTML=S.scan.map(p=>`<tr><td><input type="checkbox" value="${p.pid}" ${p.tick?"checked":""}></td><td>${esc(p.name)} (${p.pid})</td>
+    <td>${esc(p.why)}${p.browser?" · browser":""}</td><td>${p.rss}</td><td class="muted">${esc(p.cmd)}</td></tr>`).join("")}
+  if(!S.scan.length){$("scan").innerHTML="";$("scan").dataset.n=""}
+  $("scan_msg").textContent=S.scan_done&&!S.scan.length?"Nothing busy found: the machine is already free.":"";
+  $("paused").textContent=S.focus.paused.length?"Paused now: "+S.focus.paused.join(", "):"";
+  if(document.activeElement!==$("vlm_on"))$("vlm_on").checked=S.vlm_on; $("vlm_on").disabled=!S.vlm_backend;
+  $("b_tire").disabled=!S.vlm_backend; $("b_tire").title=S.vlm_backend?"":"needs the vision model (FULL COMPUTE tab)";
+  $("tire_sug").textContent=S.tire.size?"Read: "+S.tire.size+" (check it against the tire)":(S.tire.raw?"Could not read it: "+S.tire.raw:"");
+  $("b_tire_use").style.display=S.tire.size?"":"none";
+  $("npu").textContent=S.focus.npu?"NPU: "+S.focus.npu:""; $("vlm").textContent=S.vlm;
+}
+async function refresh(){try{S=await (await fetch("/api/state")).json();render()}catch(e){$("busy").textContent="(screen lost the app: is it still running?)"}}
+setInterval(refresh,1000); refresh();
+$("b_car").onclick=()=>act("car",{make:$("make").value,model:$("model").value,year:$("year").value});
+document.querySelectorAll("[data-field]").forEach(el=>el.onchange=()=>act("fields",{[el.dataset.field]:el.value}));
+$("source").onchange=e=>act("source",{source:e.target.value});
+$("b_check").onclick=()=>act("check_camera");
+$("b_cal_add").onclick=()=>act("cal_add");$("b_cal_solve").onclick=()=>act("cal_solve");$("b_cal_reset").onclick=()=>act("cal_reset");
+$("b_ax_front").onclick=()=>act("axle",{axle:"front"});$("b_ax_rear").onclick=()=>act("axle",{axle:"rear"});
+const axPhoto=()=>act("axle_photo"),axGo=()=>act("axle_compute");
+$("b_ax_photo").onclick=axPhoto;$("b_ax_go").onclick=axGo;$("b_ax_reset").onclick=()=>act("axle",{});
+const side=f=>act("side_measure",{wheel:$("side_wheel").value,shots:+$("shots").value,flipped:f});
+$("b_side").onclick=()=>side(false);$("b_flip").onclick=()=>side(true);
+$("adj_wheel").onchange=e=>act("adj",{wheel:e.target.value});$("adj_qty").onchange=e=>act("adj",{qty:e.target.value});
+$("rate").onchange=e=>act("pick_rate",{id:e.target.value});$("plus").onchange=e=>act("plus",{text:e.target.value});
+$("b_cal_go").onclick=()=>act("calib_start",{axle:$("cal_axle").value,side:$("cal_side").value,units:+$("cal_units").value,
+  unit:$("cal_unit").value,plus:$("cal_plus").value});
+$("cal_axle").onchange=e=>{$("cal_unit").value=e.target.value==="front"?"turn":$("cal_unit").value};
+$("b_cal_ph").onclick=()=>act("axle_photo");$("b_cal_f8").onclick=()=>act("axle_compute");$("b_cal_x").onclick=()=>act("calib_cancel");
+$("b_test").onclick=()=>act("test_move",{units:+$("test_units").value,shots:+$("shots").value}).then(()=>{if(S&&S.axle.hint.startsWith("TEST"))show(2)});
+const live=()=>act("live",{on:!liveOn});$("b_live").onclick=live;
+$("b_tire").onclick=()=>act("read_tire");$("b_tire_use").onclick=()=>act("use_tire");
+$("vlm_on").onchange=e=>act("vlm",{on:e.target.checked});$("b_vlm_find").onclick=()=>act("vlm",{refind:true});
+$("b_scan").onclick=()=>act("focus_scan");
+$("b_pause").onclick=()=>act("focus_pause",{pids:[...document.querySelectorAll("#scan input:checked")].map(x=>+x.value),governor:$("gov").checked});
+$("b_resume").onclick=()=>act("focus_resume");
+document.addEventListener("keydown",e=>{
+  if(e.altKey&&e.key>="1"&&e.key<="5"){show(+e.key-1);e.preventDefault();return}
+  if(e.altKey&&(e.key==="l"||e.key==="L")){live();e.preventDefault();return}
+  const k={F7:axPhoto,F8:axGo,F5:()=>side(false),F6:()=>side(true)}[e.key]; if(k){k();e.preventDefault()}});
+</script>
+</body>
+</html>

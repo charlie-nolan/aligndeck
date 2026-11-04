@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aligndeck"
+version = "0.1.0"
+description = "Camera wheel alignment with printed targets: camber, toe and exact adjuster turns"
+readme = "README.md"
+license = { text = "GPL-3.0-or-later" }
+requires-python = ">=3.10"
+dependencies = ["opencv-contrib-python-headless>=4.7", "numpy"]
+
+[project.scripts]
+aligndeck = "aligndeck.__main__:main"
+
+[tool.setuptools]
+packages = ["aligndeck"]
+
+[tool.setuptools.package-data]
+aligndeck = ["web/*.html"]
