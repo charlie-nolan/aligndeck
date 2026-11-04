@@ -1,6 +1,6 @@
 # aligndeck
 
-Camera wheel alignment for the home garage. You print a few targets, bolt them to the wheels with a 3D-printed
+Camera wheel alignment for the home garage. You print a few targets, magnetically attatch them to the wheels with a 3D-printed
 lug frame, and take photos with any camera. aligndeck measures **camber and toe**, compares them with the car's
 specs, and tells you exactly how far to turn each adjuster:
 
