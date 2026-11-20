@@ -33,7 +33,7 @@ except ImportError:
 import align_math as M
 import align_vision as V
 
-OLLAMA = os.environ.get("ALIGNDECK_OLLAMA", "http://localhost:11434")   # e.g. a desktop over Tailscale
+OLLAMA = os.environ.get("ALIGNDECK_OLLAMA", "http://localhost:11434")
 DECK_DIR_NAME = "qwen2.5-vl-3b"
 TIRE_RE = re.compile(r"(?:P|LT)?(\d{3})/(\d{2})Z?R(\d{2}(?:\.\d)?)", re.I)
 
@@ -55,7 +55,6 @@ class Vlm:
         self.last = ""
         self.find_backend()
 
-    # ------------------------------------------------------------------ backends
     def find_backend(self):
         d = os.path.join(self.models_dir, DECK_DIR_NAME)
         demo = os.path.join(d, "demo")
@@ -112,7 +111,6 @@ class Vlm:
             with urllib.request.urlopen(req, timeout=300) as r:
                 return json.load(r).get("response", "").strip()
 
-    # ------------------------------------------------------------------ what the app calls
     def ready(self):
         return cv2 is not None and V.HAVE_CV
 

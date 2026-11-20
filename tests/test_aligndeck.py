@@ -187,7 +187,7 @@ class VlmTests(unittest.TestCase):
         for n in ("v_rk3588.rknn", "l_rk3588.rkllm"):
             open(os.path.join(d, n), "w").close()
         demo = os.path.join(d, "demo")
-        with open(demo, "w") as f:      # mimics the RKLLM demo: banner, prompt, answer, next prompt
+        with open(demo, "w") as f:
             f.write("#!/bin/sh\nread line\necho 'rkllm init success'\necho '[0] <image>What is in the image?'\n"
                     "printf '\\nuser: robot: OK\\n\\nuser: '\n")
         os.chmod(demo, 0o755)

@@ -15,7 +15,7 @@ from manifold3d import Manifold
 import trimesh
 
 SEG = 64
-CLR = 0.4                      # printing clearance on holes
+CLR = 0.4
 
 def cyl(h, r, z0=0.0, r2=None):
     return Manifold.cylinder(h, r, r if r2 is None else r2, SEG).translate((0, 0, z0))
@@ -31,59 +31,55 @@ def save(m, path):
     t = trimesh.Trimesh(mesh.vert_properties[:, :3], mesh.tri_verts, process=True)
     assert t.is_watertight, path
     t.export(path)
-    return t.volume / 1000.0   # cm^3
+    return t.volume / 1000.0
 
-# ---------------------------------------------------------------- arm (print 3 per wheel)
 ARM_T, ARM_W = 6.0, 22.0
-SLOT_R0, SLOT_R1 = 28.0, 102.0      # post center radius range -> bolt circles 56-204 mm
+SLOT_R0, SLOT_R1 = 28.0, 102.0
 ARM_L = 112.0
 
 def arm():
     a = cyl(ARM_T, ARM_W / 2 + 3) + box(ARM_L, ARM_W, ARM_T, cx=ARM_L / 2) + cyl(ARM_T, ARM_W / 2).translate((ARM_L, 0, 0))
-    a -= cyl(ARM_T + 2, 4.0 + CLR / 2, -1)                                    # M8 pivot
+    a -= cyl(ARM_T + 2, 4.0 + CLR / 2, -1)
     slot = box(SLOT_R1 - SLOT_R0, 6.0 + CLR, ARM_T + 2, cx=(SLOT_R0 + SLOT_R1) / 2, z0=-1)
     slot += cyl(ARM_T + 2, 3.0 + CLR / 2, -1).translate((SLOT_R0, 0, 0)) + cyl(ARM_T + 2, 3.0 + CLR / 2, -1).translate((SLOT_R1, 0, 0))
     a -= slot
-    a -= box(4.0, 12.0, ARM_T + 2, cx=ARM_L + 3, z0=-1)                        # strap / zip-tie / bungee slot
+    a -= box(4.0, 12.0, ARM_T + 2, cx=ARM_L + 3, z0=-1)
     return a
 
-# ---------------------------------------------------------------- post (one of each length per wheel)
 POST_D = 20.0
-MAG_D, MAG_H = 12.0, 3.0         # 12 x 3 mm neodymium disc, glued in
+MAG_D, MAG_H = 12.0, 3.0
 def post(length, rings):
     p = cyl(length, POST_D / 2)
-    p -= hexagon(10.0 + CLR, 5.5, length - 5.5)                                # M6 nut trap (top, under the arm)
-    p -= cyl(length, 3.0 + CLR / 2, 4.0)                                       # M6 bolt clearance
-    p -= cyl(2.5, 7.75)                                                         # 15.5 mm recess centers on the nut dome / stud end
-    p -= cyl(MAG_H + 0.2, MAG_D / 2 + 0.15, 2.5)                                # magnet pocket
-    for i in range(rings):                                                      # 1/2/3 grooves = stack position
+    p -= hexagon(10.0 + CLR, 5.5, length - 5.5)
+    p -= cyl(length, 3.0 + CLR / 2, 4.0)
+    p -= cyl(2.5, 7.75)
+    p -= cyl(MAG_H + 0.2, MAG_D / 2 + 0.15, 2.5)
+    for i in range(rings):
         z = length - 10 - i * 3.0
         p -= (cyl(1.2, POST_D / 2 + 1, z) - cyl(1.2, POST_D / 2 - 0.8, z))
     return p
 
-# ---------------------------------------------------------------- hub: M8 knob + mast socket
-HUB_R = 18.0          # 36 mm flange: two hubs fit side by side beside the arms on a 220 bed
+HUB_R = 18.0
 
 def hub(mast_d):
     bore = mast_d / 2 + CLR / 2
     wall = 4.0
     flange_h, sock_h = 10.0, 45.0
     h = cyl(flange_h, HUB_R) + cyl(sock_h, bore + wall, flange_h - 0.01)
-    for k in range(4):                                                          # ribs
+    for k in range(4):
         h += box(22.0, 3.0, 22.0, cx=bore + wall + 8, z0=flange_h - 1).rotate((0, 0, 45 + 90 * k)) \
              ^ cyl(flange_h + 22, HUB_R, 0, r2=bore + wall)
-    h -= hexagon(13.0 + CLR, 6.8, -0.01)                                        # captive M8 nut: turning the hub tightens it
+    h -= hexagon(13.0 + CLR, 6.8, -0.01)
     h -= cyl(flange_h + 2, 4.0 + CLR / 2, -1)
-    h -= cyl(sock_h + 1, bore, flange_h + 2.0)                                  # mast socket, 2 mm floor
-    for k in range(2):                                                          # slits so a zip tie / hose clamp grips the mast
+    h -= cyl(sock_h + 1, bore, flange_h + 2.0)
+    for k in range(2):
         h -= box(2.0, 2 * (bore + wall) + 2, 25.0, z0=flange_h + sock_h - 25.0 + 0.01).rotate((0, 0, 90 * k))
     h -= (cyl(5.0, bore + wall + 2, flange_h + sock_h - 9) - cyl(5.0, bore + wall - 1.2, flange_h + sock_h - 9))
-    for k in range(6):                                                          # grip knurls on the flange
+    for k in range(6):
         h -= cyl(12, 2.5, -1).translate((HUB_R * np.cos(k * np.pi / 3), HUB_R * np.sin(k * np.pi / 3), 0))
     return h
 
-# ---------------------------------------------------------------- target mount: pad + horizontal mast socket
-PAD_X, PAD_Y = 70.0, 60.0   # pad along the mast x across; sized so both sets fit one 220 bed
+PAD_X, PAD_Y = 70.0, 60.0
 
 def target_mount(mast_d):
     bore = mast_d / 2 + CLR / 2
@@ -91,19 +87,18 @@ def target_mount(mast_d):
     pad = box(PAD_X, PAD_Y, 4.0)
     for sx in (-PAD_X / 2 + 7, PAD_X / 2 - 7):
         for sy in (-PAD_Y / 2 + 6, PAD_Y / 2 - 6):
-            pad -= cyl(6, 2.25, -1).translate((sx, sy, 0))                      # M4 or zip ties into the target board
+            pad -= cyl(6, 2.25, -1).translate((sx, sy, 0))
     x0 = -PAD_X / 2
-    L = PAD_X / 2 + 12.0                                                        # mast goes in 12 mm past the pad center
+    L = PAD_X / 2 + 12.0
     zc = 4.0 + bore + wall - 0.5
     tube = Manifold.cylinder(L, bore + wall, bore + wall, SEG).rotate((0, 90, 0)).translate((x0, 0, zc))
-    tube += box(L, 2 * (bore + wall), zc, cx=x0 + L / 2, z0=0)                # fill down to the pad
-    # teardrop bore so it prints without supports
-    tip = Manifold.cylinder(L + 2, 0.3, 0.3, 8).translate((-bore * 1.4142, 0, 0))   # -x here becomes +z (up) below
+    tube += box(L, 2 * (bore + wall), zc, cx=x0 + L / 2, z0=0)
+    tip = Manifold.cylinder(L + 2, 0.3, 0.3, 8).translate((-bore * 1.4142, 0, 0))
     tear = Manifold.batch_hull([Manifold.cylinder(L + 2, bore, bore, SEG), tip])
     tear = tear ^ Manifold.cube((2 * bore + 2 * wall - 2.4, 4 * bore, L + 2), True).translate((0, 0, (L + 2) / 2))
     tear = tear.rotate((0, 90, 0)).translate((x0 - 1, 0, zc))
     m = pad + tube - tear
-    m -= box(4.0, PAD_Y + 20, 2 * (bore + wall) + 10, cx=x0 + 12, z0=zc - (bore + wall) - 5 + 0.5) - pad  # zip-tie slot through tube walls
+    m -= box(4.0, PAD_Y + 20, 2 * (bore + wall) + 10, cx=x0 + 12, z0=zc - (bore + wall) - 5 + 0.5) - pad
     return m
 
 def main():

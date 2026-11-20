@@ -28,13 +28,12 @@ class App:
         self.error = ""
         self.scan = []
         self.scan_done = False
-        self.preview = None          # jpeg bytes of the last photo with its markers drawn
+        self.preview = None
         self.preview_name = ""
         self.camera_msg = ""
         self.tire = {"size": None, "raw": ""}
         self.job_lock = threading.Lock()
 
-    # ------------------------------------------------------------------ jobs
     def run(self, label, fn):
         if not self.job_lock.acquire(blocking=False):
             raise RuntimeError(f"busy: {self.busy}")
@@ -115,7 +114,6 @@ class App:
             raise ValueError(f"no photos in {folder}")
         return ps
 
-    # ------------------------------------------------------------------ actions from the page
     def act(self, name, a):
         s = self.s
         if name == "car":
@@ -194,7 +192,7 @@ class App:
             s.set_plus(s.adj["wheel"], s.adj["qty"], a.get("text", ""))
         elif name == "test_move":
             learn = s.start_test_move(s.adj["wheel"], s.adj["qty"], a.get("units", 0.25))
-            if not s.pending_learn:          # side view: measure now and learn from it
+            if not s.pending_learn:
                 self.act("side_measure", {"wheel": s.adj["wheel"], "shots": a.get("shots", 3), "_learn": learn,
                                           "folder": a.get("folder")})
         elif name == "vlm":
@@ -299,7 +297,7 @@ def make_handler(app):
             n = int(self.headers.get("Content-Length") or 0)
             try:
                 a = json.loads(self.rfile.read(n) or b"{}")
-                a.pop("_learn", None)            # internal only
+                a.pop("_learn", None)
                 app.act(u.path[5:], a)
                 return self._send(200, json.dumps({"ok": True}))
             except Exception as e:

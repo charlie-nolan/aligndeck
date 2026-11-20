@@ -18,7 +18,7 @@ import align_math as M
 import align_specs
 import align_vision as V
 
-DATA = os.path.expanduser(os.environ.get("ALIGNDECK_HOME", "~/.local/share/aligndeck"))   # state, photos, models
+DATA = os.path.expanduser(os.environ.get("ALIGNDECK_HOME", "~/.local/share/aligndeck"))
 QTY_ROWS = [("camber", "front"), ("camber", "rear"), ("toe", "front"), ("toe", "rear")]
 SIDE_WORD = {"LF": "LEFT FRONT (driver)", "RF": "RIGHT FRONT (passenger)", "LR": "LEFT REAR (driver)",
              "RR": "RIGHT REAR (passenger)"}
@@ -60,21 +60,20 @@ class Session:
         self.readings = {}
         self.fields = {k: "" for k in FIELDS}
         self.fields["threads"] = "1"
-        self.spec_rows = {}          # "qty|axle" -> {choice: index into cands (-1 = typed), center, tol, unit, basis}
-        self.cands = {}              # "qty|axle" -> [spec dicts from the manual]
-        self.log = []                # [(color, text)] newest last
+        self.spec_rows = {}
+        self.cands = {}
+        self.log = []
         self.source = "gphoto2"
         self.cal = None
         self.cal_photos = []
         self.axle = "front"
         self.axle_photos = []
         self.pending_learn = None
-        self.calib = None            # guided toe-adjuster calibration in progress (see calib_start)
+        self.calib = None
         self.adj = {"wheel": "LF", "qty": "toe"}
         self._load_state()
         self.load_calibration()
 
-    # ------------------------------------------------------------------ helpers
     def say(self, text, col="text"):
         with self.lock:
             self.log.append((col, f"{time.strftime('%H:%M:%S')}  {text}"))
@@ -120,7 +119,6 @@ class Session:
                     self.fields["diameter"] = f"{d:.0f}"
             self.save_state()
 
-    # ------------------------------------------------------------------ 1. specs
     def _db(self):
         """Optional spec database: --kb FILE, or --kb-dir DIR holding <make>.db (the make databases of the Open
         Diagnostic Cyberdeck use this layout). Without one, specs are typed in on SPECS."""
@@ -262,7 +260,6 @@ class Session:
                                                          if p["tsb"] else "")))
         return out
 
-    # ------------------------------------------------------------------ 2. camera
     def cal_path(self, source=None):
         return os.path.join(self.cache, f"camera_{source or self.source}.json")
 
@@ -303,7 +300,6 @@ class Session:
         self.cal, self.cal_photos = cal, []
         self.say(f"calibration solved: {cal['rms']:.2f} px from {len(cal['used'])} photos", "ok")
 
-    # ------------------------------------------------------------------ 3. measure: front view
     def axle_reset(self, axle=None):
         if axle in ("front", "rear"):
             self.axle = axle
@@ -348,7 +344,7 @@ class Session:
                 if pend and pend[0] == wheel and prev.get("single"):
                     self.pending_learn = None
                     old, new = dict(prev["single"]), dict(single)
-                    if pend[1] == "toe" and "total" in old:      # only this side moved: the total changed by its move
+                    if pend[1] == "toe" and "total" in old:
                         old["toe"], new["toe"] = old["total"], new["total"]
                     self._learn(pend, old, new)
             self.say(f"{axle.upper()} AXLE ({r['photos']} photos, wheels turned up to {max(r['roll_l']):.0f}°): total "
@@ -365,7 +361,6 @@ class Session:
                 self._calib_step(r["total_toe"])
             self.save_state()
 
-    # ------------------------------------------------------------------ 3. measure: side view
     def string_correction(self, wheel):
         side = "left" if wheel in ("LF", "LR") else "right"
         df, dr = _num(self.fields[f"str_{side}_front"]), _num(self.fields[f"str_{side}_rear"])
@@ -396,7 +391,7 @@ class Session:
             entry = {"camber": cam, "toe": toe, "spread_c": sc, "spread_t": st, "n": len(good),
                      "when": time.strftime("%H:%M:%S"), "yaw": yaw, "single": single, "first": single}
             if flipped and prev.get("first") and not prev.get("flip_pair") and not prev.get("method"):
-                a = prev["first"]          # other half of a flip pair: the average cancels the clamp's tilt
+                a = prev["first"]
                 entry.update(camber=(a["camber"] + cam) / 2, toe=(a["toe"] + toe) / 2, flip_pair=True, first=a,
                              clamp_error_c=(cam - a["camber"]) / 2, clamp_error_t=(toe - a["toe"]) / 2)
             elif flipped:
@@ -414,7 +409,6 @@ class Session:
                 self._learn(learn, prev["single"], single)
             self.save_state()
 
-    # ------------------------------------------------------------------ guided toe-adjuster calibration
     def calib_start(self, axle, side, units, unit, plus):
         """Photos as it is, turn ONE side's toe adjuster a known amount, photos again: the change in total toe is
         that side's degrees per turn (or graduation), measured on this car. Used for both sides (mirror parts)."""
@@ -455,7 +449,7 @@ class Session:
             return
         change = total - c["before"]
         if abs(change) < 0.05:
-            c["units"] += c["step_units"]       # too small to trust: turn the same amount again, same direction
+            c["units"] += c["step_units"]
             self.say(f"Turning {M.fmt_turns(c['units'] - c['step_units'])} {c['unit']} changed toe only "
                      f"{change:+.3f}°, which is too close to the reading noise. Turn it another "
                      f"{M.fmt_turns(c['step_units'])} {c['unit']} the same way, then photos and F8 again.", "amber")
@@ -479,7 +473,6 @@ class Session:
             self.say("That's a lot of toe per turn for a tie rod: check the turn count and that nothing else moved.",
                      "amber")
 
-    # ------------------------------------------------------------------ results
     def verdict(self, qty, wheel, val):
         tgt, why = self.target(qty, wheel)
         if tgt is None:
@@ -508,7 +501,6 @@ class Session:
                          "toe_spec": "", "verdict": "+ = rear tracks right", "bad": False, "reading": ""})
         return rows
 
-    # ------------------------------------------------------------------ 4. adjust
     def rate_options(self, wheel, qty):
         """[{label, rate (deg per unit) or None, sign_known, unit, source}] for one adjuster."""
         opts = []
@@ -649,7 +641,6 @@ class Session:
                              "wear."))
         return out
 
-    # ------------------------------------------------------------------ everything the screen shows
     def snapshot(self):
         with self.lock:
             specs = []

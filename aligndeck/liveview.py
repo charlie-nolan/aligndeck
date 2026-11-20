@@ -19,7 +19,7 @@ except ImportError:
 
 import align_vision as V
 
-COLORS = {"LEFT": (134, 174, 111), "RIGHT": (216, 145, 169), "FLOOR": (65, 164, 217)}   # BGR of the screen palette
+COLORS = {"LEFT": (134, 174, 111), "RIGHT": (216, 145, 169), "FLOOR": (65, 164, 217)}
 
 
 def overlay(jpeg, detector):
@@ -51,8 +51,8 @@ def overlay(jpeg, detector):
 
 class LiveView:
     def __init__(self):
-        self.source = None           # "gphoto2" | "webcam" | None
-        self.frame = None            # latest jpeg bytes (with overlay)
+        self.source = None
+        self.frame = None
         self.counts = {}
         self.seq = 0
         self.error = ""
@@ -65,7 +65,6 @@ class LiveView:
         if V.HAVE_CV:
             self.detector = cv2.aruco.ArucoDetector(V._dict(), cv2.aruco.DetectorParameters())
 
-    # ------------------------------------------------------------------ control
     def start(self, source):
         self.stop()
         self.source = source
@@ -94,7 +93,7 @@ class LiveView:
         self._held += 1
         if running:
             self.stop()
-            time.sleep(0.5)          # the camera needs a moment to leave live view
+            time.sleep(0.5)
         try:
             yield
         finally:
@@ -105,7 +104,6 @@ class LiveView:
     def running(self):
         return bool(self._thread and self._thread.is_alive())
 
-    # ------------------------------------------------------------------ frames
     def _push(self, jpeg):
         out, counts = overlay(jpeg, self.detector)
         with self.cond:
@@ -123,7 +121,7 @@ class LiveView:
                 self._run_gphoto2()
             else:
                 self._run_webcam()
-        except Exception as e:          # shown on the screen; the rest of the app keeps working
+        except Exception as e:
             self.error = str(e)[:300]
 
     def _run_gphoto2(self):
@@ -148,7 +146,7 @@ class LiveView:
                     buf = buf[a:] if a >= 0 else b""
                     break
                 jpeg, buf = buf[a:b + 2], buf[b + 2:]
-                if time.time() - last > 0.08:          # ~12 fps is plenty for aiming
+                if time.time() - last > 0.08:
                     last = time.time()
                     self._push(jpeg)
 

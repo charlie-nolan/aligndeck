@@ -22,11 +22,10 @@ KEEP = {"systemd", "dbus-daemon", "dbus-broker", "sshd", "sshd-session", "ssh-ag
         "sddm", "lightdm", "gdm", "login", "agetty", "tmux: server", "tmux", "screen", "konsole", "gnome-terminal-",
         "xterm", "alacritty", "kitty", "zsh", "bash", "sh", "fish", "gphoto2", "sudo", "polkit-kde-auth",
         "polkitd", "upowerd", "udisksd", "bluetoothd", "Xvnc", "x11vnc", "wayvnc"}
-# programs known to eat CPU/GPU/NPU on desktops and RK3588 boards: ticked by default when they show up
 HEAVY_CMD = ("rkllm",
-             "ollama", "llama-server", "llama-cli")           # matched anywhere in the command line
+             "ollama", "llama-server", "llama-cli")
 HEAVY_COMM = ("ollama", "llama-server", "llama-cli", "tesseract", "ffmpeg", "baloo_file", "tracker-miner",
-              "akonadi", "steam", "rustc", "cc1plus", "make", "ninja", "code")   # matched at the start of the name
+              "akonadi", "steam", "rustc", "cc1plus", "make", "ninja", "code")
 BROWSERS = ("chromium", "chrome", "firefox", "brave", "falkon", "epiphany", "qutebrowser")
 
 
@@ -105,7 +104,7 @@ def scan(seconds=1.5, min_cpu=3.0):
         if not i0 or not i1 or i1[5] != i0[5] or pid in prot or i1[2] != me:
             continue
         comm, cmd = i1[0], i1[1]
-        if pid == 1 or not cmd or comm in KEEP or comm.startswith(("kworker", "systemd")):   # no cmd = kernel thread
+        if pid == 1 or not cmd or comm in KEEP or comm.startswith(("kworker", "systemd")):
             continue
         cpu = 100.0 * (i1[4] - i0[4]) / hz / seconds
         heavy = any(h in cmd for h in HEAVY_CMD) or comm.lower().startswith(HEAVY_COMM)
@@ -121,7 +120,6 @@ def scan(seconds=1.5, min_cpu=3.0):
             why.append("known heavy program (idle right now)")
         out.append({"pid": pid, "name": comm, "cmd": cmd[:160], "cpu": round(cpu, 1), "rss": round(i1[6]),
                     "gpu": gpu.get(pid, 0), "why": ", ".join(why), "browser": browser,
-                    # browsers are never pre-ticked: one of them may be showing this screen
                     "tick": (heavy or cpu >= 25 or pid in gpu) and not browser, "start": i1[5]})
     out.sort(key=lambda r: (-r["tick"], -r["cpu"], -r["gpu"]))
     return out
@@ -130,11 +128,11 @@ def scan(seconds=1.5, min_cpu=3.0):
 class Focus:
     def __init__(self, cache_dir):
         self.path = os.path.join(cache_dir, "paused.json")
-        self.paused = []             # [{pid, name, start}]
-        self.governor = {}           # cpufreq policy path -> governor before we changed it
+        self.paused = []
+        self.governor = {}
         self.notes = []
         self._load()
-        if self.paused:              # left over from a crash: give those programs back first
+        if self.paused:
             n = self.resume()
             self.notes.append(f"resumed {n} program(s) a previous run had left paused")
 
@@ -159,7 +157,7 @@ class Focus:
         for p in procs:
             info = _proc_info(int(p["pid"]))
             if not info or info[5] != int(p["start"]) or info[2] != _uid():
-                continue                     # gone, or the pid now belongs to something else
+                continue
             try:
                 os.kill(int(p["pid"]), signal.SIGSTOP)
                 self.paused.append({"pid": int(p["pid"]), "name": info[0], "start": info[5]})

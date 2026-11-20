@@ -23,7 +23,7 @@ try:
     import cv2
     import numpy as np
     HAVE_CV = hasattr(cv2, "aruco") and hasattr(cv2.aruco, "CharucoDetector")
-except ImportError:          # the screen still opens and says what to install
+except ImportError:
     cv2 = np = None
     HAVE_CV = False
 
@@ -33,15 +33,15 @@ INSTALL_HINT = ("OpenCV with ArUco is missing. Install it in the app's venv:\n"
                 "  pip install opencv-contrib-python-headless\n"
                 "(if 'opencv-python' is already there, uninstall it first: it hides the contrib build)")
 
-SQUARE_MM = 36.0       # as designed; measure the print and enter it if distances matter
+SQUARE_MM = 36.0
 MARKER_MM = 27.0
-WHEEL_SQUARES = (5, 7)     # columns x rows: portrait Letter/A4
-FLOOR_SQUARES = (7, 5)     # landscape
-WHEEL_IDS = list(range(0, 17))          # left (driver) wheel target; "wheel" = this one (side method, calibration)
-WHEEL_R_IDS = list(range(17, 34))       # right (passenger) wheel target: both can be in one front-view photo
+WHEEL_SQUARES = (5, 7)
+FLOOR_SQUARES = (7, 5)
+WHEEL_IDS = list(range(0, 17))
+WHEEL_R_IDS = list(range(17, 34))
 FLOOR_IDS = list(range(50, 67))
-MIN_ROLL_DEG = 15          # front view: the car must roll at least this much of a wheel turn between photos
-MIN_CORNERS = 12           # fewer corners than this: the pose is not trusted
+MIN_ROLL_DEG = 15
+MIN_CORNERS = 12
 
 
 def _dict():
@@ -55,7 +55,6 @@ def board(which, square_mm=SQUARE_MM, marker_mm=None):
     return cv2.aruco.CharucoBoard(size, square_mm, marker_mm, _dict(), np.array(ids, dtype=np.int32))
 
 
-# ------------------------------------------------------------------ printable targets
 def target_image(which, dpi=300, paper=(215.9, 279.4)):
     """Grayscale image of one target sheet at true size for the given dpi (Letter by default), with labels.
     Returns (image, px_per_mm, (x0, y0) pixel of the board's top-left corner)."""
@@ -65,7 +64,7 @@ def target_image(which, dpi=300, paper=(215.9, 279.4)):
     pw, ph = paper if is_wheel else (paper[1], paper[0])
     s = dpi / 25.4
     W, H = int(round(pw * s)), int(round(ph * s))
-    sq = int(round(SQUARE_MM * s))          # whole pixels per square, so every square edge lands exactly
+    sq = int(round(SQUARE_MM * s))
     bw, bh = cols * sq, rows * sq
     img = np.full((H, W), 255, np.uint8)
     x0, y0 = (W - bw) // 2, (H - bh) // 2
@@ -101,7 +100,6 @@ def write_targets(out_dir, dpi=300):
     return paths
 
 
-# ------------------------------------------------------------------ detection, calibration, pose
 def detect(img, which, square_mm=SQUARE_MM):
     """(object points Nx3 mm, image points Nx2) of one target in a photo, or None."""
     gray = img if img.ndim == 2 else cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -174,8 +172,8 @@ def pose(img, which, cal):
     proj, _ = cv2.projectPoints(op, rvec, tvec, K, dist)
     rms = float(np.sqrt(np.mean(np.sum((proj.reshape(-1, 2) - ip) ** 2, axis=1))))
     t = tvec.ravel()
-    n = R[:, 2]                     # board z points into the printed page
-    if np.dot(n, t) > 0:            # make it point out of the page, toward the camera
+    n = R[:, 2]
+    if np.dot(n, t) > 0:
         n = -n
     return {"R": R, "t": t, "normal": n, "x_axis": R[:, 0], "corners": len(op), "rms": rms}
 
@@ -198,7 +196,6 @@ def measure_photo(path, wheel, cal):
             "rms": max(w["rms"], f["rms"]), "distance_mm": float(np.linalg.norm(w["t"]))}
 
 
-# ------------------------------------------------------------------ front view: one axle per photo set
 def spin_axis(rotations):
     """Wheel spin axis (unit vector, camera frame) from a target's rotations at 2+ roll positions of the car.
     The target is rigid on the wheel, so R_j R_0^T is a rotation about the spin axis: the axis is the vector
@@ -240,7 +237,6 @@ def measure_axle(paths, cal, square_mm=SQUARE_MM):
                          f"further (at least {MIN_ROLL_DEG}°, about 1/8 of a turn, is better)", "notes": notes}
     up = np.mean([g["floor"]["normal"] for g in poses], axis=0)
     up /= np.linalg.norm(up)
-    # left = from the right target toward the left target, made level
     left = np.mean([g["wheel_l"]["t"] - g["wheel_r"]["t"] for g in poses], axis=0)
     left -= up * np.dot(left, up)
     left /= np.linalg.norm(left)
@@ -257,7 +253,6 @@ def measure_axle(paths, cal, square_mm=SQUARE_MM):
             "notes": notes}
 
 
-# ------------------------------------------------------------------ cameras
 class Gphoto2Camera:
     """A DSLR over USB through the gphoto2 command (Nikon D750 works with libgphoto2).
     Camera setup: lens on MF with the focus ring taped, fixed ISO/aperture, image quality JPEG (or RAW+JPEG)."""
@@ -284,7 +279,6 @@ class Gphoto2Camera:
         cmd = ["gphoto2", "--capture-image-and-download", "--force-overwrite", "--filename", tmpl]
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         if r.returncode != 0 and "claim" in (r.stderr + r.stdout).lower():
-            # the desktop's automounter holds the camera; let go of it once and retry
             subprocess.run(["pkill", "-f", "gvfs-gphoto2-volume-monitor"], capture_output=True)
             subprocess.run(["gio", "mount", "-s", "gphoto2"], capture_output=True)
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
@@ -321,7 +315,7 @@ class WebcamCamera:
             cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, 4096)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 2160)
-            for _ in range(10):          # let exposure settle
+            for _ in range(10):
                 cap.read()
             ok, frame = cap.read()
         finally:
