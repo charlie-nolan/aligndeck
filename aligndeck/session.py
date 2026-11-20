@@ -14,9 +14,9 @@ import sqlite3
 import threading
 import time
 
-import align_math as M
-import align_specs
-import align_vision as V
+from . import align_math as M
+from . import align_specs
+from . import align_vision as V
 
 DATA = os.path.expanduser(os.environ.get("ALIGNDECK_HOME", "~/.local/share/aligndeck"))
 QTY_ROWS = [("camber", "front"), ("camber", "rear"), ("toe", "front"), ("toe", "rear")]

@@ -47,8 +47,11 @@ echo "== 2/4 ONNX -> RKNN (rk3588)"
 echo "== 3/4 calibration inputs for the language model"
 python data/make_input_embeds_for_quantize.py --path "$HF" --model_type qwen2.5vl
 echo "== 4/4 language model -> RKLLM w8a8"
-sed -e "s#dataset = 'data/inputs.json'#dataset = 'data/llm_inputs.json'#" export/export_rkllm.py > export/export_rkllm_qwen25.py
-python export/export_rkllm_qwen25.py --path "$HF" --target-platform rk3588 --num_npu_core 3 --quantized_dtype w8a8 --device cpu
+CALIB=data/llm_inputs.json
+[ -s "$CALIB" ] || { echo "step 3 wrote no $CALIB: stopping before an uncalibrated export" >&2; exit 1; }
+grep -q "data/inputs.json" export/export_rkllm.py || { echo "export_rkllm.py no longer reads data/inputs.json: check its dataset path" >&2; exit 1; }
+cp "$CALIB" data/inputs.json
+python export/export_rkllm.py --path "$HF" --target-platform rk3588 --num_npu_core 3 --quantized_dtype w8a8 --device cpu
 
 cp rknn/qwen2_5-vl-3b_vision_rk3588.rknn "$OUT/"
 cp rkllm/*.rkllm "$OUT/"

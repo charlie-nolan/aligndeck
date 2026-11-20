@@ -12,8 +12,8 @@ import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
-import align_vision as V
-from session import SIDE_WORD
+from . import align_vision as V
+from .session import SIDE_WORD
 
 WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 IMG_EXT = (".jpg", ".jpeg", ".png", ".tif", ".tiff")
@@ -79,7 +79,7 @@ class App:
         small = cv2.resize(img, None, fx=k, fy=k, interpolation=cv2.INTER_AREA) if k < 1 else img
         ok, buf = cv2.imencode(".jpg", small, [cv2.IMWRITE_JPEG_QUALITY, 85])
         if ok:
-            from liveview import overlay
+            from .liveview import overlay
             self.preview, _ = overlay(buf.tobytes(), self.live.detector)
             self.preview_name = os.path.basename(path)
         if self.vlm and self.vlm.ready():

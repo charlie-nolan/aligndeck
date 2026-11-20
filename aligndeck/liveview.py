@@ -17,7 +17,7 @@ try:
 except ImportError:
     cv2 = np = None
 
-import align_vision as V
+from . import align_vision as V
 
 COLORS = {"LEFT": (134, 174, 111), "RIGHT": (216, 145, 169), "FLOOR": (65, 164, 217)}
 
@@ -93,7 +93,6 @@ class LiveView:
         self._held += 1
         if running:
             self.stop()
-            time.sleep(0.5)
         try:
             yield
         finally:

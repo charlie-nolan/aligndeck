@@ -16,12 +16,12 @@ import sys
 import time
 import webbrowser
 
-import align_vision as V
-from focus import Focus
-from liveview import LiveView
-from server import App, serve
-from session import DATA, Session
-import vlm as VLM
+from . import align_vision as V
+from .focus import Focus
+from .liveview import LiveView
+from .server import App, serve
+from .session import DATA, Session
+from . import vlm as VLM
 
 
 def tailscale_ip():

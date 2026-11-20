@@ -27,7 +27,7 @@ except ImportError:
     cv2 = np = None
     HAVE_CV = False
 
-import align_math as M
+from . import align_math as M
 
 INSTALL_HINT = ("OpenCV with ArUco is missing. Install it in the app's venv:\n"
                 "  pip install opencv-contrib-python-headless\n"
@@ -253,10 +253,24 @@ def measure_axle(paths, cal, square_mm=SQUARE_MM):
             "notes": notes}
 
 
+BUSY_WORDS = ("claim", "device or resource busy", "i/o in progress", "could not lock the device")
+CAMERA_HELD = ("another program is holding the camera (often the desktop's photo automounter). Unmount the camera "
+               "in the file manager, or run: gio mount -u gphoto2://*  then press capture again")
+
+
+def camera_busy(text):
+    """True when gphoto2 failed only because the USB device is still in use."""
+    t = text.lower()
+    return any(w in t for w in BUSY_WORDS)
+
+
 class Gphoto2Camera:
     """A DSLR over USB through the gphoto2 command (Nikon D750 works with libgphoto2).
-    Camera setup: lens on MF with the focus ring taped, fixed ISO/aperture, image quality JPEG (or RAW+JPEG)."""
+    Camera setup: lens on MF with the focus ring taped, fixed ISO/aperture, image quality JPEG (or RAW+JPEG).
+    A capture retries for busy_wait seconds while the device is busy (live view letting go of it); it never stops
+    or kills another program that holds the camera, it says how to free it."""
     name = "gphoto2"
+    busy_wait = 8.0
 
     def __init__(self, folder):
         self.folder = folder
@@ -277,12 +291,15 @@ class Gphoto2Camera:
         stamp = time.strftime("%Y%m%d_%H%M%S")
         tmpl = os.path.join(self.folder, f"shot_{stamp}_%n.%C")
         cmd = ["gphoto2", "--capture-image-and-download", "--force-overwrite", "--filename", tmpl]
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        if r.returncode != 0 and "claim" in (r.stderr + r.stdout).lower():
-            subprocess.run(["pkill", "-f", "gvfs-gphoto2-volume-monitor"], capture_output=True)
-            subprocess.run(["gio", "mount", "-s", "gphoto2"], capture_output=True)
+        deadline = time.monotonic() + self.busy_wait
+        while True:
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            if r.returncode == 0 or not camera_busy(r.stderr + r.stdout) or time.monotonic() >= deadline:
+                break
+            time.sleep(0.25)
         if r.returncode != 0:
+            if camera_busy(r.stderr + r.stdout):
+                raise RuntimeError(CAMERA_HELD)
             raise RuntimeError((r.stderr or r.stdout).strip()[-400:] or "gphoto2 capture failed")
         jpgs = sorted(glob.glob(os.path.join(self.folder, f"shot_{stamp}_*.jp*g")) +
                       glob.glob(os.path.join(self.folder, f"shot_{stamp}_*.JP*G")))
