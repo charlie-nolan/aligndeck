@@ -45,7 +45,6 @@ def main():
     pw, _ = size(posts[0])
     out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stl")
 
-    # one 220 x 220 bed (Ender 3 Pro): arms stacked on the left; mounts, hubs and posts in the strip on the right
     BED = 220.0
     items = [(arm, 0, i * (ah + GAP)) for i in range(6)]
     x2 = aw + GAP

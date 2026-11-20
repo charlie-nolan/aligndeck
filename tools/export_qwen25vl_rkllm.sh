@@ -17,9 +17,7 @@ RL=${RKNN_LLM:-$HOME/rknn-llm}
 [ -d "$RL/examples/multimodal_model_demo" ] || git clone --depth 1 https://github.com/airockchip/rknn-llm "$RL"
 source "$ENV/bin/activate"
 python -c "import rkllm" || { echo "rkllm-toolkit is not in $ENV (see rknn-llm/rkllm-toolkit/packages)"; exit 1; }
-# rkllm-env keeps its pinned torch/transformers; it only gains onnx (Rockchip README pins 1.18.0)
 pip install -q "onnx==1.18.0"
-# rknn-toolkit2 (vision tower conversion) gets its own venv so it can't change rkllm-env's packages
 RKNN_ENV=${RKNN_ENV:-$HOME/rknn-env}
 if [ ! -x "$RKNN_ENV/bin/python" ]; then
   python -m venv "$RKNN_ENV"
@@ -30,7 +28,6 @@ if [ ! -f "$HF/config.json" ]; then
   echo "== downloading Qwen/Qwen2.5-VL-3B-Instruct to $HF (~7.5 GB)"
   python -c "from huggingface_hub import snapshot_download; snapshot_download('Qwen/Qwen2.5-VL-3B-Instruct', local_dir='$HF')"
 fi
-# RKNN only takes float32 vision weights: flash attention off (Rockchip README step 3.2)
 python - "$HF/config.json" <<'PY'
 import json, sys
 p = sys.argv[1]; c = json.load(open(p))
@@ -50,7 +47,6 @@ echo "== 2/4 ONNX -> RKNN (rk3588)"
 echo "== 3/4 calibration inputs for the language model"
 python data/make_input_embeds_for_quantize.py --path "$HF" --model_type qwen2.5vl
 echo "== 4/4 language model -> RKLLM w8a8"
-# Rockchip's export reads data/inputs.json; the calibration step above writes data/llm_inputs.json
 sed -e "s#dataset = 'data/inputs.json'#dataset = 'data/llm_inputs.json'#" export/export_rkllm.py > export/export_rkllm_qwen25.py
 python export/export_rkllm_qwen25.py --path "$HF" --target-platform rk3588 --num_npu_core 3 --quantized_dtype w8a8 --device cpu
 

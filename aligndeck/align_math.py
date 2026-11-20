@@ -15,7 +15,6 @@ WHEELS = ("LF", "RF", "LR", "RR")
 WHEEL_NAMES = {"LF": "left front", "RF": "right front", "LR": "left rear", "RR": "right rear"}
 
 
-# ------------------------------------------------------------------ vectors
 def dot(a, b):
     return sum(x * y for x, y in zip(a, b))
 
@@ -50,14 +49,13 @@ def wheel_angles(n_wheel, up, fwd, wheel):
     up, fwd, left = floor_frame(up, fwd)
     n = norm(n_wheel)
     out = left if wheel in ("LF", "LR") else scale(left, -1)
-    if dot(n, out) < 0:            # target normal came back pointing into the car: flip it
+    if dot(n, out) < 0:
         n = scale(n, -1)
     camber = math.degrees(math.asin(max(-1.0, min(1.0, -dot(n, up)))))
     toe = math.degrees(math.atan2(dot(n, fwd), dot(n, out)))
     return camber, toe
 
 
-# ------------------------------------------------------------------ string line
 def string_yaw(d_front, d_rear, wheelbase, track_front=None, track_rear=None):
     """Angle (deg) the string line points OUTWARD toward the front, from string-to-hub-center distances.
     A string parallel to the centerline has d_front - d_rear = (track_rear - track_front) / 2.
@@ -74,7 +72,6 @@ def thrust_angle(toe_lr, toe_rr):
     return (toe_rr - toe_lr) / 2.0
 
 
-# ------------------------------------------------------------------ units
 def mm_to_deg(mm, diameter_mm):
     """Toe in mm (at the given diameter, one wheel) -> degrees."""
     return math.degrees(math.atan2(mm, diameter_mm))
@@ -122,7 +119,6 @@ def fmt_turns(t, step=0.125):
     return f"{frac}" if whole == 0 else f"{whole} {frac}"
 
 
-# ------------------------------------------------------------------ corrections
 def correction(measured, target_center, tol=None):
     """Change needed (deg) to reach the spec's center, and whether the reading is already in tolerance."""
     delta = target_center - measured

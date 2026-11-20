@@ -21,17 +21,17 @@ try:
 except ImportError:
     HAVE = False
 
-W, H = 3000, 2000            # rendered photo size
-F = 4190.0                   # ~ a 50 mm lens on a full-frame body, scaled to 3000 px wide
+W, H = 3000, 2000
+F = 4190.0
 
 
 def look_at(cam, target):
     z = np.array(target, float) - cam
     z /= np.linalg.norm(z)
-    x = np.cross(z, [0, 0, 1.0])       # world z is up; camera x to the right
+    x = np.cross(z, [0, 0, 1.0])
     x /= np.linalg.norm(x)
     y = np.cross(z, x)
-    return np.vstack([x, y, z])         # rows: camera axes in world coords (world -> camera)
+    return np.vstack([x, y, z])
 
 
 def board_rot(z_into_page, x_dir):
@@ -40,7 +40,7 @@ def board_rot(z_into_page, x_dir):
     x = np.array(x_dir, float) - z * np.dot(x_dir, z)
     x /= np.linalg.norm(x)
     y = np.cross(z, x)
-    return np.column_stack([x, y, z])   # board axes in world coords
+    return np.column_stack([x, y, z])
 
 
 def render(scene, K, noise=1.5, seed=0):
@@ -51,12 +51,11 @@ def render(scene, K, noise=1.5, seed=0):
         img, s, (x0, y0) = V.target_image(which, dpi=200)
         cols, rows = V.WHEEL_SQUARES if which.startswith("wheel") else V.FLOOR_SQUARES
         bw, bh = cols * V.SQUARE_MM / 1000, rows * V.SQUARE_MM / 1000
-        O = np.array(center) - Rbw @ np.array([bw / 2, bh / 2, 0])     # board origin (top-left corner) in world
+        O = np.array(center) - Rbw @ np.array([bw / 2, bh / 2, 0])
         Mx = Rcw @ Rbw
-        k = 1.0 / (s * 1000.0)          # sheet pixels -> metres, origin moved to the board corner
+        k = 1.0 / (s * 1000.0)
         A = np.column_stack([Mx[:, 0] * k, Mx[:, 1] * k, Rcw @ (O - C) - (Mx[:, 0] * x0 + Mx[:, 1] * y0) * k])
         Hm = K @ A
-        # anti-alias: blur the sheet by about half its shrink factor (stands in for the lens and sensor)
         cx, cy = x0 + img.shape[1] * 0 + (cols * V.SQUARE_MM * s) / 2, y0 + (rows * V.SQUARE_MM * s) / 2
         p0 = Hm @ [cx, cy, 1.0]
         p1 = Hm @ [cx + 10, cy, 1.0]
@@ -79,7 +78,7 @@ def wheel_scene(wheel, camber, toe, yaw=0.0):
     n_out = np.array([math.sin(t) * math.cos(c), side * math.cos(t) * math.cos(c), -math.sin(c)])
     hub = np.array([0.0, side * 0.75, 0.32])
     w_center = hub + n_out * 0.08
-    Rw = board_rot(-n_out, np.cross(n_out, [0, 0, 1.0]) * side)   # x along the wheel's heading
+    Rw = board_rot(-n_out, np.cross(n_out, [0, 0, 1.0]) * side)
     b = math.radians(yaw)
     f_center = np.array([0.15, side * 1.25, 0.0])
     Rf = board_rot([0, 0, -1.0], [math.cos(b), side * math.sin(b), 0])
@@ -97,19 +96,19 @@ def axle_scene(cams, toes, roll_deg, mount_err=((3, 1, 2), (-2, 2, 1)), rear=Fal
     a few degrees crooked), the car rolled forward by roll_deg of a wheel turn, floor target in front, camera in
     front (behind the car for the rear axle; then 'left' is still the car's left)."""
     out = []
-    fwd = np.array([1.0, 0, 0]) * (-1 if rear else 1)      # toward the camera
+    fwd = np.array([1.0, 0, 0]) * (-1 if rear else 1)
     C = np.array([3.6, 0.0, 1.0]) * np.array([-1 if rear else 1, 1, 1])
     Rcw = look_at(C, [0.6 * (-1 if rear else 1), 0, 0.1])
-    travel = 0.32 * math.radians(roll_deg)                 # the car moves as the wheel turns (radius 0.32 m)
+    travel = 0.32 * math.radians(roll_deg)
     for which, side, cam, toe, err in (("wheel_l", 1, cams[0], toes[0], mount_err[0]),
                                        ("wheel_r", -1, cams[1], toes[1], mount_err[1])):
         c, t = math.radians(cam), math.radians(toe)
-        a = np.array([math.sin(t) * math.cos(c), side * math.cos(t) * math.cos(c), -math.sin(c)])   # outward axis
+        a = np.array([math.sin(t) * math.cos(c), side * math.cos(t) * math.cos(c), -math.sin(c)])
         hub = np.array([travel, side * 0.75, 0.32])
-        z_into = -(fwd - a * np.dot(fwd, a))               # page faces the camera
+        z_into = -(fwd - a * np.dot(fwd, a))
         R0 = board_rot(z_into, np.cross([0, 0, 1.0], z_into))
-        R0 = rodrigues(err, np.linalg.norm(err)) @ R0      # the frame isn't square on the lugs
-        Rw = rodrigues(a, -roll_deg * side) @ R0           # rolling forward turns the wheel about its axis
+        R0 = rodrigues(err, np.linalg.norm(err)) @ R0
+        Rw = rodrigues(a, -roll_deg * side) @ R0
         out.append((which, hub + a * 0.30, Rw, Rcw, C))
     out.append(("floor", np.array([1.4 * (-1 if rear else 1), 0, 0.0]), board_rot([0, 0, -1.0], [1, 0, 0]), Rcw, C))
     return out
@@ -127,7 +126,6 @@ class MathTests(unittest.TestCase):
                 self.assertAlmostEqual(got[1], toe, places=9)
 
     def test_floor_not_level_and_fwd_not_level(self):
-        # the whole car and floor rolled 1 deg and pitched 0.5 deg: camber and toe must not change
         def rot(v, axis, deg):
             a = math.radians(deg)
             c, s = math.cos(a), math.sin(a)
@@ -136,7 +134,7 @@ class MathTests(unittest.TestCase):
                 return (x, c * y - s * z, s * y + c * z)
             return (c * x + s * z, y, -s * x + c * z)
         t = math.radians(0.2)
-        n = (math.sin(t), math.cos(t), 0.0)               # LF, 0 camber, 0.2 toe-in, before tilting
+        n = (math.sin(t), math.cos(t), 0.0)
         tilt = lambda v: rot(rot(v, "x", 1.0), "y", 0.5)  # noqa: E731
         cam, toe = M.wheel_angles(tilt(n), tilt((0, 0, 1)), tilt((1, 0, 0)), "LF")
         self.assertAlmostEqual(cam, 0.0, places=9)
@@ -151,7 +149,7 @@ class MathTests(unittest.TestCase):
         units, r, sign = M.adjuster_moves(-0.39, M.learned_rate(0.10, 0.22, 1.0))
         self.assertEqual(M.fmt_turns(r), "3 1/4")
         self.assertEqual(sign, "-")
-        self.assertEqual(M.fmt_turns(0.0625), "0")      # rounds to the nearest 1/8
+        self.assertEqual(M.fmt_turns(0.0625), "0")
         self.assertEqual(M.fmt_angle(-0.25), "-0°15' (-0.25°)")
 
     def test_tire_diameter(self):
@@ -176,7 +174,7 @@ class SpecParseTests(unittest.TestCase):
         self.assertEqual(got[("camber", "rear", "each", "deg")][0], round(-35 / 60, 4))
         self.assertEqual(got[("toe", "front", "total", "mm")], (0.0, -3.0, 3.0))
         self.assertEqual(got[("toe", "front", "each", "deg")], (None, -0.15, 0.15))
-        self.assertNotIn(("caster", "front", "", "deg"), got)       # 'difference' is not a tolerance
+        self.assertNotIn(("caster", "front", "", "deg"), got)
 
     def test_one_value_per_line(self):
         got = self.specs("Camber\nFront\n0°00' ± 45'\nRear\n- 0°45' ± 45'\nTotal toe\nFront\n0 ± 3 mm (0 ± 0.12 inch)")
@@ -204,7 +202,6 @@ class VisionTests(unittest.TestCase):
     def setUpClass(cls):
         cls.K = np.array([[F, 0, W / 2 + 7], [0, F, H / 2 - 5], [0, 0, 1]])
         cls.tmp = tempfile.mkdtemp(prefix="align_test_")
-        # calibration photos: the wheel target held at many angles
         rng = np.random.default_rng(1)
         paths = []
         for i in range(20):
@@ -212,7 +209,7 @@ class VisionTests(unittest.TestCase):
             Rcw = np.eye(3)
             ang = rng.uniform(-35, 35, 3)
             Rb = cv2.Rodrigues(np.radians(ang))[0] @ np.eye(3)
-            z = rng.uniform(0.9, 1.4)   # spread over the whole frame, corners included
+            z = rng.uniform(0.9, 1.4)
             center = np.array([rng.uniform(-0.3, 0.3) * z, rng.uniform(-0.18, 0.18) * z, z])
             img = render([("wheel", center, Rb, Rcw, C)], cls.K, seed=i)
             p = os.path.join(cls.tmp, f"cal_{i}.png")
@@ -235,7 +232,7 @@ class VisionTests(unittest.TestCase):
             cv2.imwrite(p, img)
             r = V.measure_photo(p, wheel, self.cal)
             self.assertNotIn("error", r, r.get("error"))
-            got_toe = r["toe"] - yaw            # the string-line correction the screen applies
+            got_toe = r["toe"] - yaw
             worst = max(worst, abs(r["camber"] - cam), abs(got_toe - toe))
             self.assertAlmostEqual(r["camber"], cam, delta=0.05, msg=f"{wheel} camber")
             self.assertAlmostEqual(got_toe, toe, delta=0.05, msg=f"{wheel} toe")

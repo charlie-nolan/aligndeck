@@ -2,4 +2,4 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # the align_* modules import each other by name
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

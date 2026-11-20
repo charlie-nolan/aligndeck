@@ -1,0 +1,15 @@
+name: comments
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  comments:
+    # Code comments are banned; the count per file may only go down (tools/comment_ratchet.py, .comment-baseline.json)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/comment_ratchet.py

@@ -13,12 +13,10 @@ to pick or type the value. Empty beats wrong.
 """
 import re
 
-# ------------------------------------------------------------------ number patterns
 _MINUS = "[-−–]"
 _NUM = r"\d+(?:\.\d+)?"
 _DEG = r"(?:°|º|\^\{°\}|\^\{\\circ\}|\s?deg\b\.?|\s?degrees?\b)"
 _MIN = r"(?:'|′|’|�|\s?min\b)"
-# 2°37'  -0 deg 15'  1.2°  0°00'  15'   (sign handled separately)
 _ANG = rf"(?:{_NUM}\s*{_DEG}\s*(?:{_NUM}\s*{_MIN})?|{_NUM}\s*{_MIN})"
 _PM = r"(?:±|\+/-|\+ /-|\+-|\+/−)"
 
@@ -32,7 +30,6 @@ QTY_WORDS = [("thrust", re.compile(r"\bthrust\s+angle", re.I)),
              ("toe", re.compile(r"\btoe(?:[- ]?(?:in|out))?\b", re.I)),
              ("camber", re.compile(r"\bcamber\b", re.I)),
              ("caster", re.compile(r"\bcaster\b", re.I))]
-# a line naming one of these ends the camber/toe/caster context it was in
 OTHER_QTY_RE = re.compile(r"king\s*pin|steering\s+axis|\bsai\b|wheel\s+arch|turning\s+angle|steering\s+angle|"
                           r"inner\s+wheel|outer\s+wheel|inside\s+wheel|outside\s+wheel|ride\s+height|trim\s+height|"
                           r"vehicle\s+height|stabili[sz]er|torque", re.I)
@@ -40,14 +37,13 @@ AXLE_RE = re.compile(r"\b(front|rear)\b", re.I)
 SKIP_PATH_RE = re.compile(r"Description and Operation|Labor Times|Tools and Equipment|Timing Component|Headlamp|"
                           r"Diagrams|Connector", re.I)
 
-# a cell that reads like an instruction or a rate, not a spec value
 PROSE_RE = re.compile(r"\b(?:chang\w*|mov(?:e|ing|ement)|rotat\w*|turn\w*|reset|found|loosen\w*|tighten\w*|keep|press|"
                       r"measur\w*|should|will|larger|less\s+than|or\s+less|more\s+than|approx\w*|increment\w*|graduation|"
                       r"scale|example\w*|shift)\b", re.I)
 CUT_RE = re.compile(r"\s(?=(?:When|If|Note|NOTE|Refer|Try|Make sure)\b)")
 RANGE_MM_RE = re.compile(rf"(?P<a>{_MINUS}?\s*{_NUM})\s*(?:—|–|to)\s*(?P<b>{_MINUS}?\s*{_NUM})\s*mm\b", re.I)
 
-ANGLE_LIMIT = {"camber": 6.0, "caster": 15.0, "toe": 3.0, "thrust": 2.0}   # beyond this a reading is not plausible
+ANGLE_LIMIT = {"camber": 6.0, "caster": 15.0, "toe": 3.0, "thrust": 2.0}
 TOL_LIMIT = {"camber": 3.0, "caster": 4.0, "toe": 1.5, "thrust": 1.5}
 MM_LIMIT = 20.0
 
@@ -64,19 +60,18 @@ def _ang(a, sign=None):
     nums = re.findall(_NUM, a)
     if re.search(_DEG, a):
         v = float(nums[0]) + (float(nums[1]) / 60.0 if len(nums) > 1 else 0.0)
-    else:                                   # minutes only
+    else:
         v = float(nums[0]) / 60.0
     return -v if sign and re.match(_MINUS, sign) else v
 
 
 def _clean(line):
-    line = IN_PAREN_RE.sub(" ", line)                       # '(0.08±0.12 in)' repeats the mm value
+    line = IN_PAREN_RE.sub(" ", line)
     line = line.replace("\\text{", "").replace("$", " ").replace("{", "").replace("}", "")
-    line = re.sub(r"<[^>]+>", " ", line)                    # <p> tags inside markdown table cells
+    line = re.sub(r"<[^>]+>", " ", line)
     return line
 
 
-# ------------------------------------------------------------------ specs
 def parse_specs(body, default_axle=None):
     """[(quantity, axle, basis, unit, center, tol_lo, tol_hi, raw_line)] from one page. unit is 'deg' or 'mm';
     center None = the line gives only a tolerance (filled in later only when that is safe). basis is 'each',
@@ -109,24 +104,22 @@ def parse_specs(body, default_axle=None):
                 axle = am[0].lower()
             if qty is None or PROSE_RE.search(cell):
                 continue
-            if re.search(r"difference", cell, re.I):      # 'Common difference : +/- 0 deg 45'' / 'RH-LH 45' or less'
+            if re.search(r"difference", cell, re.I):
                 cell = re.split(r"difference", cell, flags=re.I)[0]
                 if not cell.strip():
                     continue
             rest = cell
-            # tolerance given before the value: 'Camber Tolerance : +/- 0 deg 30''
             mt = re.search(rf"tolerance\s*:?\s*{_PM}\s*({_ANG})", rest, re.I)
             if mt:
                 pending_tol[qty] = _ang(mt.group(1))
                 rest = rest[:mt.start()] + " " + rest[mt.end():]
-            # 'Each Toe Angle : +/- 0 deg 09'' : a per-wheel angle whose center the line leaves out
             me = re.search(rf"\beach\b[^:]*angle\s*:?\s*{_PM}\s*({_ANG})", rest, re.I)
             if me:
                 t = _ang(me.group(1))
                 out.append((qty, axle, "each", "deg", None, -t, t, raw.strip()))
                 rest = rest[:me.start()] + " " + rest[me.end():]
             em = re.search(r"\beach\b[^:]*angle\s*:?", rest, re.I)
-            if em:                            # '2 +/-3 mm Each Toe Angle : 0 deg 05' +/- 0 deg 08''
+            if em:
                 for m in ANGLE_RE.finditer(rest[em.end():]):
                     c = _ang(m.group("a"), m.group("sign"))
                     t = _ang(m.group("tol")) if m.group("tol") else pending_tol.get(qty)
@@ -134,7 +127,7 @@ def parse_specs(body, default_axle=None):
                         continue
                     out.append((qty, axle, "each", "deg", c, -t, t, raw.strip()))
                 rest = rest[:em.start()]
-            for m in RANGE_MM_RE.finditer(rest):          # 'OUTBACK model -3 — 0 mm'
+            for m in RANGE_MM_RE.finditer(rest):
                 if qty != "toe":
                     break
                 a, b2 = (float(x.replace(" ", "").replace("−", "-").replace("–", "-")) for x in (m.group("a"), m.group("b")))
@@ -150,7 +143,6 @@ def parse_specs(body, default_axle=None):
                 if m.group("sign") and re.match(_MINUS, m.group("sign")):
                     v = -v
                 t = float(m.group("tol"))
-                # toe in mm is measured across both tires unless the line says each/per wheel before the value
                 b = "each" if re.search(r"\beach\b|per wheel", rest[:m.start()], re.I) else "total"
                 out.append((qty, axle, b, "mm", v, -t, t, raw.strip()))
             rest_deg = MM_RE.sub(" ", rest)
@@ -160,7 +152,7 @@ def parse_specs(body, default_axle=None):
                 if ma and ma.start() <= m.start() < ma.end():
                     continue
                 if not m.group("tol") and any(a <= m.start("a") < b for a, b in tol_spans):
-                    continue                  # a bare '± 15'' is a tolerance with no value of its own
+                    continue
                 c = _ang(m.group("a"), m.group("sign"))
                 if m.group("tol"):
                     t = _ang(m.group("tol"))
@@ -170,7 +162,7 @@ def parse_specs(body, default_axle=None):
                 else:
                     t = pending_tol.get(qty)
                     if t is None:
-                        continue              # a value with no tolerance is not a spec this screen can check
+                        continue
                     lo, hi = -t, t
                 b = "each" if qty == "camber" else (basis or line_basis)
                 out.append((qty, axle, b, "deg", c, lo, hi, raw.strip()))
@@ -185,7 +177,6 @@ def _plausible(qty, unit, center, lo, hi):
     return all(x is None or abs(x) <= TOL_LIMIT.get(qty, 3) for x in (lo, hi))
 
 
-# ------------------------------------------------------------------ adjuster rates and directions
 _SENT_SPLIT = re.compile(r"(?<=[.;])\s+(?=[A-Z(])|\n\s*\n")
 RATE_RE = re.compile(r"\b(?:one|1|each|a single)\s+(?:full\s+)?(?:scale\s+)?(turn|graduation|scale|notch|revolution|"
                      r"rotation|mark)s?\b", re.I)
@@ -195,7 +186,7 @@ DIR_RE = re.compile(r"(counter[- ]?clockwise|anti[- ]?clockwise|clockwise)", re.
 
 def _sentences(body):
     text = _clean(body)
-    text = re.sub(r"(?<![.:;\n])\n(?!\s*\n)", " ", text)     # CHARM breaks lines inside sentences
+    text = re.sub(r"(?<![.:;\n])\n(?!\s*\n)", " ", text)
     return [s.strip() for s in _SENT_SPLIT.split(text) if s.strip()]
 
 
@@ -265,7 +256,6 @@ def parse_pitches(body):
     return out
 
 
-# ------------------------------------------------------------------ DB lookup
 def vehicle_ids(db, model, year, engine=None):
     if not model:
         return []
@@ -309,7 +299,7 @@ def lookup(db, model, year, engine=None):
         if SKIP_PATH_RE.search(path) or not re.search(r"camber|toe", body, re.I):
             continue
         key = hash(body)
-        if key in seen_body:            # CHARM stores the same page under several paths
+        if key in seen_body:
             continue
         seen_body.add(key)
         src = _source(kind, title, path, page)
@@ -328,13 +318,12 @@ def lookup(db, model, year, engine=None):
         res["directions"] += [{"quantity": q, "raw": s, "source": src} for q, s in hits]
         res["direction_rules"] += [{"quantity": q, "change": ch, "turn": cw, "view": v, "raw": s, "source": src}
                                    for q, ch, cw, v, s in parsed]
-    # thread pitches: steering linkage pages too
     for sid, kind, title, path, page, body in _sections(
             db, vids, "(s.path LIKE '%Tie Rod%' OR s.path LIKE '%Steering%' OR s.path LIKE '%lignment%') AND "
                       "(s.body LIKE '%pitch%' OR s.body LIKE '%M1_x%' OR s.body LIKE '%M1_ x%')", limit=200):
         for p, raw in parse_pitches(body):
             res["pitches"].append({"pitch_mm": p, "raw": raw, "source": _source(kind, title, path, page)})
-    res["diameters"] = diameter_from_specs(res["specs"])     # before merging: needs both readings of one line
+    res["diameters"] = diameter_from_specs(res["specs"])
     res["specs"] = _merge_specs(res["specs"])
     res["rates"] = _dedupe(res["rates"], ("quantity", "unit", "value", "value_unit", "both_sides"))
     res["directions"] = _dedupe(res["directions"], ("quantity", "raw"))
