@@ -30,8 +30,8 @@ try:
 except ImportError:
     cv2 = np = None
 
-import align_math as M
-import align_vision as V
+from . import align_math as M
+from . import align_vision as V
 
 OLLAMA = os.environ.get("ALIGNDECK_OLLAMA", "http://localhost:11434")
 DECK_DIR_NAME = "qwen2.5-vl-3b"

@@ -10,13 +10,13 @@ import sys
 import tempfile
 import unittest
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "aligndeck"))
-import align_math as M  # noqa: E402
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from aligndeck import align_math as M  # noqa: E402
 
 try:
     import cv2
     import numpy as np
-    import align_vision as V
+    from aligndeck import align_vision as V
     HAVE = V.HAVE_CV
 except ImportError:
     HAVE = False
@@ -162,7 +162,7 @@ class SpecParseTests(unittest.TestCase):
     """Manual lines in the shapes the make DBs hold (CHARM table rows, FSM markdown, one-value-per-line pages)."""
 
     def specs(self, body, axle=None):
-        import align_specs as S
+        from aligndeck import align_specs as S
         return {(q, a, b, u): (round(c, 4) if c is not None else None, lo, hi)
                 for q, a, b, u, c, lo, hi, _ in S.parse_specs(body, axle)}
 
@@ -186,7 +186,7 @@ class SpecParseTests(unittest.TestCase):
                                     "approximately 0°10'.\nReset LF toe from 0.45 degrees to 0.10 degrees."), {})
 
     def test_rates_and_directions(self):
-        import align_specs as S
+        from aligndeck import align_specs as S
         r = S.parse_rates("NOTE:\nMoving the adjusting bolt by one scale graduation changes camber by approximately "
                           "0^{°}10' .")
         self.assertEqual((r[0][0], r[0][1], round(r[0][2], 4), r[0][3]), ("camber", "graduation", 0.1667, "deg"))

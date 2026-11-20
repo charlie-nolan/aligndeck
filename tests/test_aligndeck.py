@@ -13,18 +13,18 @@ import unittest
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(os.path.dirname(HERE), "aligndeck"))
+sys.path.insert(0, os.path.join(os.path.dirname(HERE)))
 sys.path.insert(0, HERE)
 import test_alignment as T  # noqa: E402  (synthetic renderer)
 
 if T.HAVE:
     import cv2
     import numpy as np
-    from focus import Focus
-    from liveview import LiveView
-    from server import App, serve
-    from session import Session
-    import vlm as VLM
+    from aligndeck.focus import Focus
+    from aligndeck.liveview import LiveView
+    from aligndeck.server import App, serve
+    from aligndeck.session import Session
+    from aligndeck import vlm as VLM
 
 
 @unittest.skipUnless(T.HAVE, "OpenCV with aruco not installed")
