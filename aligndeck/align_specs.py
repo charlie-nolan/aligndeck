@@ -6,7 +6,8 @@ Nothing here is invented: every item carries the manual line it came from and it
 path). When a line can't be read with confidence it is still shown as a raw line, and the screen asks the user
 to pick or type the value. Empty beats wrong.
 
-    import sqlite3, align_specs
+    import sqlite3
+    from aligndeck import align_specs
     db = sqlite3.connect("file:kb/<make>.db?mode=ro", uri=True)
     found = align_specs.lookup(db, model="Forester", year=2002)
     found["specs"], found["rates"], found["directions"], found["pitches"]
